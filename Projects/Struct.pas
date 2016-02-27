@@ -107,7 +107,7 @@ type
     SlicesPerDisk: Integer;
     UninstallLogMode: (lmAppend, lmNew, lmOverwrite);
     DirExistsWarning: (ddAuto, ddNo, ddYes);
-    PrivilegesRequired: (prNone, prPowerUser, prAdmin, prLowest);
+    PrivilegesRequired: (prNone, prPowerUser, prAdmin, prLowest, prAsIs);
     ShowLanguageDialog: (slYes, slNo, slAuto);
     LanguageDetectionMethod: TSetupLanguageDetectionMethod;
     CompressMethod: TSetupCompressMethod;

@@ -4012,6 +4012,8 @@ begin
           SetupHeader.PrivilegesRequired := prAdmin
         else if CompareText(Value, 'lowest') = 0 then
           SetupHeader.PrivilegesRequired := prLowest
+        else if CompareText(Value, 'asis') = 0 then
+          SetupHeader.PrivilegesRequired := prAsIs
         else
           Invalid;
       end;

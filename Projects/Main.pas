@@ -2936,8 +2936,8 @@ begin
 
         { Start a new, elevated Setup(Ldr) process if needed }
         if not IsRespawnedProcess and
-           NeedToRespawnSelfElevated(not (SetupHeader.PrivilegesRequired in [prNone, prLowest]),
-             SetupHeader.PrivilegesRequired <> prLowest) then begin
+           NeedToRespawnSelfElevated(not (SetupHeader.PrivilegesRequired in [prNone, prLowest, prAsIs]),
+             not (SetupHeader.PrivilegesRequired in [prLowest, prAsIs])) then begin
           FreeAndNil(Reader);
           FreeAndNil(SetupFile);
           RespawnSetupElevated(GetCmdTailEx(StartParam));
