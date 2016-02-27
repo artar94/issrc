@@ -44,6 +44,15 @@ Source code README
   Newer Delphi versions should also work but will lead to significantly larger
   files.
 
+  To work with the Delphi 2009 IDE under Windows 8.1 you need these two things
+  to make it work well:
+
+  http://www.jrsoftware.org/files/Delphi_2007_2009_WOW64_Debugger_Fix.exe
+    (md5sum: 545fc506c0614cf7a3339a7acb5217dc)
+
+  http://www.jrsoftware.org/files/dzEditorLineEndsFix.exe
+    (md5sum: c9598cf14452dd08987c5aec23d04f7d)
+
   Non Unicode Inno Setup:
 
   We compile all of Inno Setup's projects under Delphi 2.01, with the
@@ -150,10 +159,7 @@ Inno Setup consists of seven projects:
 do the actual compilation itself; it relegates it to ISCmplr.dll. If the
 ISCmplr project is changed, you normally don't need to recompile Compil32
 since it's essentially a text editor, and is not affected by internal
-changes to the compiler.  
-Non Unicode Inno Setup note: This is the only project that is compiled
-under Delphi 3 (3.02 to be exact). The rest of the projects are compiled
-under Delphi 2.01.
+changes to the compiler.
 
 **ISCC** - This is the command-line front-end to the compiler. Like
 Compil32, it depends on ISCmplr.dll to do the actual compiling.
@@ -182,8 +188,8 @@ How do the projects link together?
   clauses of the projects and units if you aren't sure if a project uses a
   particular unit.
 
-- ISPP uses various copies of other Inno Setup files. To synch these
-  run synch-isfiles.bat.
+- The ISPP help file uses various copies of other Inno Setup files. To synch
+  these run synch-isfiles.bat.
 
 5. Source code tips
 -------------------
@@ -257,7 +263,8 @@ by Visual Studio 2005 from the Projects\lzma2\Encoder directory.
 code with scintilla-2.22-patch.txt applied.
 
 **Projects\_shfolder.res** - shfolder.dll from a fresh install of IE 5.5 SP2 on
-NT 4.0 stored in a compiled resource file.
+NT 4.0 stored in a compiled resource file. Note: this file is normally not
+actually used by Setup.
 
 **Projects\Helper\x64\Release\Helper.exe**, **Projects\HelperEXEs.res** -
 Compiled by Visual Studio 2005 from the Projects\Helper directory and then

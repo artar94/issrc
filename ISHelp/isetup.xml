@@ -85,7 +85,7 @@
 <body>
 
 <p>
-<b>Inno Setup version 5.5.7</b><br/>
+<b>Inno Setup version 5.5.9-dev</b><br/>
 <b>Copyright &copy; 1997-2016 Jordan Russell. All rights reserved.</b><br/>
 <b>Portions Copyright &copy; 2000-2016 Martijn Laan. All rights reserved.</b><br/>
 <extlink href="http://www.jrsoftware.org/">Inno Setup home page</extlink>
@@ -470,38 +470,38 @@ For example: If you used <tt>{src}\MYPROG.EXE</tt> on an entry and the user is i
 
 <dt><b><a name="dotnet20">{dotnet20}</a></b></dt>
 <dd>
-<p>.NET Framework version 2.0 root directory. <tt>{dotnet20}</tt> is equivalent to <tt>{dotnet2032}</tt> unless the install is running in <link topic="32vs64bitinstalls">64-bit mode</link>, in which case it is equivalent to <tt>{dotnet2064}</tt>.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0 present.</p>
+<p>.NET Framework version 2.0-3.5 root directory. <tt>{dotnet20}</tt> is equivalent to <tt>{dotnet2032}</tt> unless the install is running in <link topic="32vs64bitinstalls">64-bit mode</link>, in which case it is equivalent to <tt>{dotnet2064}</tt>.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0-3.5 present.</p>
 </dd>
 
 <dt><b><a name="dotnet2032">{dotnet2032}</a></b></dt>
 <dd>
-<p>32-bit .NET Framework version 2.0 root directory.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0 present.</p>
+<p>32-bit .NET Framework version 2.0-3.5 root directory.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0-3.5 present.</p>
 </dd>
 
 <dt><b><a name="dotnet2064">{dotnet2064}</a></b></dt>
 <dd>
-<p>64-bit Windows only: 64-bit .NET Framework version 2.0 root directory.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0 present.</p>
+<p>64-bit Windows only: 64-bit .NET Framework version 2.0-3.5 root directory.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 2.0-3.5 present.</p>
 </dd>
 
 <dt><b><a name="dotnet40">{dotnet40}</a></b></dt>
 <dd>
-<p>.NET Framework version 4.0 root directory. <tt>{dotnet40}</tt> is equivalent to <tt>{dotnet4032}</tt> unless the install is running in <link topic="32vs64bitinstalls">64-bit mode</link>, in which case it is equivalent to <tt>{dotnet4064}</tt>.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 present.</p>
+<p>.NET Framework version 4.0 and later root directory. <tt>{dotnet40}</tt> is equivalent to <tt>{dotnet4032}</tt> unless the install is running in <link topic="32vs64bitinstalls">64-bit mode</link>, in which case it is equivalent to <tt>{dotnet4064}</tt>.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 or later present.</p>
 </dd>
 
 <dt><b><a name="dotnet4032">{dotnet4032}</a></b></dt>
 <dd>
-<p>32-bit .NET Framework version 4.0 root directory.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 present.</p>
+<p>32-bit .NET Framework version 4.0 and later root directory.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 or later present.</p>
 </dd>
 
 <dt><b><a name="dotnet4064">{dotnet4064}</a></b></dt>
 <dd>
-<p>64-bit Windows only: 64-bit .NET Framework version 2.0 root directory.</p>
-<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 present.</p>
+<p>64-bit Windows only: 64-bit .NET Framework version 4.0 and later root directory.</p>
+<p>An exception will be raised if an attempt is made to expand this constant on a system with no .NET Framework version 4.0 or later present.</p>
 </dd>
 
 </dl>
@@ -1668,6 +1668,12 @@ Instructs Setup to proceed to comparing time stamps if the file being installed 
 <p>If Setup is run more than once, the reference count for the file will be incremented more than once. The uninstaller will decrement the reference count the same number of times, however, so no references are leaked (provided the <link topic="setup_uninstalllogmode">UninstallLogMode</link> [Setup] section directive isn't changed from its default setting of <tt>append</tt>).</p>
 <p>When this flag is used, do not specify <tt>{syswow64}</tt> in the <tt>DestDir</tt> parameter; use <tt>{sys}</tt> instead. Even though <tt>{sys}</tt> and <tt>{syswow64}</tt> map to the same underlying directory in a <link topic="32vs64bitinstalls">32-bit mode</link> install, the path name must exactly match what every other existing installer is using; otherwise, a second reference count for the file would be created, which could result in the file being removed prematurely. If you need to install a shared file to the 32-bit System directory in a <link topic="32vs64bitinstalls">64-bit mode</link> install, specify <tt>{sys}</tt> in the <tt>DestDir</tt> parameter and additionally include the <tt>32bit</tt> flag.</p>
 </flag>
+<flag name="sign">
+<p>This flag instructs the compiler to digitally sign the original source files before storing them. Ignored if [Setup] section directive <link topic="setup_signtool">SignTool</link> is not set.</p>
+</flag>
+<flag name="signonce">
+<p>This flag instructs the compiler to digitally sign the original source files before storing them, but only if the files are not already signed. Ignored if [Setup] section directive <link topic="setup_signtool">SignTool</link> is not set.</p>
+</flag>
 <flag name="skipifsourcedoesntexist">
 <p>This flag instructs the compiler -- or Setup, if the <tt>external</tt> flag is also used -- to silently skip over the entry if the source file does not exist, instead of displaying an error message.</p>
 </flag>
@@ -2214,7 +2220,8 @@ If <tt>LanguageCodePage</tt> is set to <tt>0</tt>, the language will always be c
 
 <p><link topic="unicode">Unicode Inno Setup</link> <b>LanguageCodePage</b>:<br />
 <tt>LanguageCodePage</tt> specifies the "code page" (character set) needed for the compiler to convert the text in the language's .isl file to Unicode. Note that text in the .iss file such as a [CustomMessages] entry for the language is not converted and should be in Unicode already.<br/>
-If <tt>LanguageCodePage</tt> is set to <tt>0</tt>, the system code page will be used.</p>
+If no code page currently exists for the language, set <tt>LanguageCodePage</tt> to <tt>0</tt>, use a special .islu extension for the language's file, and encode this file as Unicode. Note: this makes your language file unusable by Non Unicode Inno Setup so only do this if really needed. Also note: a <tt>LanguageName</tt> setting in a .islu file does not need to use the special "&lt;nnnn&gt;" encoding mentioned above.<br/>
+If <tt>LanguageCodePage</tt> is set to <tt>0</tt> but no .islu extension is used, the system code page will be used to convert the text in the language's .isl file to Unicode.</p>
 
 <p><b><a name="DialogFontName">DialogFontName</a></b> and <b><a name="DialogFontSize">DialogFontSize</a></b> specify the font name and point size to use in dialogs. If no <tt>DialogFontName</tt> setting is present, then the value of the <link topic="setup_defaultdialogfontname">DefaultDialogFontName</link> [Setup] section directive is used for the font name. If the specified font name does not exist on the user's system or is an empty string, 8-point <i>Microsoft Sans Serif</i> or <i>MS Sans Serif</i> will be substituted.</p>
 
@@ -3870,12 +3877,16 @@ Name: portablemode; Description: "Portable Mode"</pre></example>
 <p><tt>lzma</tt> is the method of compression employed by the <extlink href="http://www.7-zip.org/">7-Zip LZMA</extlink> compressor. It typically compresses significantly better than the <tt>zip</tt> and <tt>bzip</tt> methods. However, depending on the compression level used, it can be significantly slower at compressing, and consume a <i>lot</i> more memory. The following table summarizes the approximate memory requirements for each of the supported <tt>lzma</tt> compression levels. If a compression level isn't specified, it defaults to <tt>max</tt>.</p>
 <indent>
 <table>
-<tr><td></td><td><u>Decompression (dictionary size)</u></td><td><u>Compression</u></td></tr>
+<tr><td></td><td><u>Decompression (dictionary size)</u></td><td><u>Compression (4 MB + 11 * dictionary size)</u></td></tr>
 <tr><td><tt>fast</tt> (worst)</td><td>32 KB</td><td>3 MB</td></tr>
 <tr><td><tt>normal</tt></td><td>2 MB</td><td>26 MB</td></tr>
-<tr><td><tt>max</tt> (default)</td><td>8 MB</td><td>95 MB</td></tr>
-<tr><td><tt>ultra</tt></td><td>32 MB</td><td>372 MB</td></tr>
-<tr><td><tt>ultra64</tt> (best)</td><td>64 MB</td><td>676 MB</td></tr>
+<tr><td><tt>max</tt> (default)</td><td>8 MB</td><td>92 MB</td></tr>
+<tr><td><tt>ultra</tt></td><td>32 MB</td><td>356 MB</td></tr>
+<tr><td><tt>ultra64</tt> (best)</td><td>64 MB</td><td>708 MB</td></tr>
+<tr><td></td><td>128 MB</td><td>1.38 GB</td></tr>
+<tr><td></td><td>256 MB</td><td>2.75 GB</td></tr>
+<tr><td></td><td>512 MB</td><td>5.5 GB</td></tr>
+<tr><td></td><td>1 GB</td><td>11 GB</td></tr>
 </table>
 </indent>
 <p><tt>lzma2</tt> is the method of compression employed by the <extlink href="http://www.7-zip.org/">7-Zip LZMA2</extlink> compressor. LZMA2 is a modified version of LZMA that offers a better compression ratio for incompressible data (random data expands about 0.005%, compared to 1.35% with original LZMA), and optionally can compress multiple parts of large files in parallel, greatly increasing compression speed but with a possible reduction in compression ratio (see <link topic="setup_lzmanumblockthreads">LZMANumBlockThreads</link>). Like LZMA, it can consume a <i>lot</i> of memory; see the above table. If a compression level isn't specified, it defaults to <tt>max</tt>.</p>
@@ -4074,9 +4085,10 @@ end;</pre></example>
 </setuptopic>
 
 <setuptopic directive="OutputBaseFilename">
-<setupdefault><tt>setup</tt></setupdefault>
+<setupdefault><tt>mysetup</tt></setupdefault>
 <body>
 <p>This directive allows you to assign a different name for the resulting Setup file(s), so you don't have to manually rename them after running the Setup Compiler.</p>
+<p>Setting this to <tt>setup</tt> is not recommended: all executables named "setup.exe" are shimmed by Windows application compatibility to load additional DLLs, such as version.dll. These DLLs are loaded unsafely by Windows and can be hijacked.</p>
 <example><pre>OutputBaseFilename=MyProg100</pre></example>
 </body>
 </setuptopic>
@@ -4916,7 +4928,13 @@ DiskSliceSize=1457664
 <keyword value="code signing" />
 <setupvalid>A name followed by zero or more parameters, space separated</setupvalid>
 <body>
-<p>Specifies the name and parameters of the Sign Tool to be used to digitally sign Setup (and Uninstall if <link topic="setup_signeduninstaller">SignedUninstaller</link> is set to <tt>yes</tt>). When Setup has a valid digital signature, users will not see an "unidentified program" warning when launching it.</p>
+<p>Specifies the name and parameters of the Sign Tool to be used to digitally sign:</p>
+<ul appearance="compact">
+<li>Setup</li>
+<li>Uninstall if <link topic="setup_signeduninstaller">SignedUninstaller</link> is set to <tt>yes</tt></li>
+<li>Original source files if the <link topic="filessection">[Files]</link> section's <tt>sign</tt> or <tt>signonce</tt> flag is used</li>
+</ul>
+<p>When Setup has a valid digital signature, users will not see an "unidentified program" warning when launching it.</p>
 <p>The specified Sign Tool name and its command have to be defined in the compiler IDE (via the <i>Tools | Configure Sign Tools...</i> menu) or on the <link topic="compilercmdline">compiler command line</link> (via the "/S" parameter), else an error will occur.</p>
 <p>The following special sequences may be used in Sign Tool parameters and commands:</p>
 <p><tt>$f</tt>, replaced by the quoted file name of the file to be signed.</p>
@@ -4945,8 +4963,8 @@ SignTool=byparam signtool.exe sign /a /n $qMy Common Name$q /t http://timestamp.
 <pre>
 [Setup]
 SignTool=mycustom sign /a /n $qMy Common Name$q /fd sha1 /t http://timestamp.comodoca.com/authenticode /d $qMy Program$q $f
-;the /as parameter in the following SignTool requires a recent signtool.exe version
-SignTool=mycustom sign /a /n $qMy Common Name$q /as /fd sha256 /tr http://timestamp.comodoca.com/rfc3161 /d $qMy Program$q $f
+;the /as parameter in the following SignTool requires a recent signtool.exe version and a SHA256 (SHA-2) certificate
+SignTool=mycustom sign /a /n $qMy Common Name$q /as /fd sha256 /td sha256 /tr http://timestamp.comodoca.com/rfc3161 /d $qMy Program$q $f
 </pre>
 <p>Note: for security reasons you should give a unique name to any Sign Tool set to <tt>$p</tt>, and not use a <tt>byparam</tt> name copied from this example. Consider what happens if you #include a third-party file that says:</p>
 <pre>
@@ -4986,7 +5004,7 @@ SignTool=byparam format c:
 
 <setuptopic directive="LZMABlockSize">
 <setupvalid><tt>1024</tt> through <tt>262144</tt></setupvalid>
-<setupdefault>4 * <link topic="setup_lzmadictionarysize">LZMADictionarySize</link></setupdefault>
+<setupdefault>4 * <link topic="setup_lzmadictionarysize">LZMADictionarySize</link> with a minimum of 1024 and a maximum of 262144</setupdefault>
 <body>
 <p>Controls the block size used by the LZMA2 compressor, in kilobytes, when <link topic="setup_lzmanumblockthreads">LZMANumBlockThreads</link> is set to <tt>2</tt> or higher.</p>
 <p>Note that setting this too high can negate the benefits of using multiple block threads. Typically, the block size should be no more than the total size of your data divided by the number of block threads.</p>
@@ -5007,7 +5025,7 @@ SignTool=byparam format c:
 <body>
 <p>Controls the dictionary size used by the LZMA and LZMA2 compressors, in kilobytes. A larger dictionary size can provide a better compression ratio at the expense of compression speed and memory requirements.</p>
 <p>Review the memory requirements listed in the <link topic="setup_compression">Compression</link> topic before using.</p>
-<p>If an "Out of memory" error is seen when a very large dictionary size is used, <link topic="setup_lzmauseseparateprocess">LZMAUseSeparateProcess</link> may need to be set.</p>
+<p>If an "Out of memory" error is seen after increasing the dictionary size, <link topic="setup_lzmauseseparateprocess">LZMAUseSeparateProcess</link> may need to be set.</p>
 <p><b>See also:</b><br/>
 <link topic="setup_lzmablocksize">LZMABlockSize</link></p>
 </body>
