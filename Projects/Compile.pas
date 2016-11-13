@@ -8338,7 +8338,8 @@ var
 
 
 const
-  BadFileNameChars = '/:*?"<>|';
+  BadFilePathChars = '/*?"<>|';
+  BadFileNameChars = BadFilePathChars + ':';
 var
   SetupE32: TMemoryFile;
   I: Integer;
@@ -8582,7 +8583,7 @@ begin
       end else if OutputBaseFileName = 'setup' then
         WarningsList.Add(SCompilerOutputBaseFileNameSetup);
       if (SetupDirectiveLines[ssOutputManifestFile] <> 0) and
-         ((OutputManifestFile = '') or (PathLastDelimiter(BadFileNameChars, OutputManifestFile) <> 0)) then begin
+         ((OutputManifestFile = '') or (PathLastDelimiter(BadFilePathChars, OutputManifestFile) <> 0)) then begin
         LineNumber := SetupDirectiveLines[ssOutputManifestFile];
         AbortCompileOnLineFmt(SCompilerEntryInvalid2, ['Setup', 'OutputManifestFile']);
       end;
