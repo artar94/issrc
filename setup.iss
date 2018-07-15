@@ -1,5 +1,5 @@
 ; Inno Setup
-; Copyright (C) 1997-2012 Jordan Russell. All rights reserved.
+; Copyright (C) 1997-2018 Jordan Russell. All rights reserved.
 ; Portions by Martijn Laan
 ; For conditions of distribution and use, see LICENSE.TXT.
 ;
@@ -8,15 +8,14 @@
 [Setup]
 AppName=Inno Setup
 AppId=Inno Setup 5
-AppVersion=5.5.9
+AppVersion=5.6.1
 AppPublisher=jrsoftware.org
 AppPublisherURL=http://www.innosetup.com/
 AppSupportURL=http://www.innosetup.com/
 AppUpdatesURL=http://www.innosetup.com/
-VersionInfoCopyright=Copyright (C) 1997-2012 Jordan Russell. Portions Copyright (C) 2000-2012 Martijn Laan.
+VersionInfoCopyright=Copyright (C) 1997-2018 Jordan Russell. Portions Copyright (C) 2000-2018 Martijn Laan.
 AppMutex=InnoSetupCompilerAppMutex,Global\InnoSetupCompilerAppMutex
 SetupMutex=InnoSetupCompilerSetupMutex,Global\InnoSetupCompilerSetupMutex
-MinVersion=0,5.0
 DefaultDirName={pf}\Inno Setup 5
 DefaultGroupName=Inno Setup 5
 AllowNoIcons=yes
@@ -36,34 +35,55 @@ SignTool=issigntool256
 SignedUninstaller=yes
 #endif
 
-[Languages]
-Name: english; MessagesFile: "files\Default.isl"
+#define MatchingExtension(str FileName, str Extension) \
+  SameText(ExtractFileExt(FileName), Extension)
 
-#sub ProcessFoundFile
+#sub ProcessFoundLanguagesFile
   #define FileName FindGetFileName(FindHandle)
-  #define Name LowerCase(RemoveFileExt(FileName))
-  #define MessagesFile PathName + FileName
-  #pragma message "Generating [Languages] entry with name " + Name
-  Name: {#Name}; MessagesFile: {#MessagesFile}
+  #if MatchingExtension(FileName, FindBaseExtension) ; Some systems also return .islu files when asked for *.isl
+    #define Name LowerCase(RemoveFileExt(FileName))
+    #define MessagesFile FindPathName + FileName
+    #define CustomMessagesFile FindPathName + 'Setup\' + Name + '.' + FindBaseExtension
+    #pragma message "Generating [Languages] entry with name " + Name + ": " + MessagesFile + ', ' + CustomMessagesFile
+    #if FileExists(CustomMessagesFile)
+      Name: {#Name}; MessagesFile: "{#MessagesFile},{#CustomMessagesFile}"
+    #else
+      Name: {#Name}; MessagesFile: "{#MessagesFile}"
+    #endif
+  #endif
 #endsub
 
-#define PathName "files\Languages\"
+#define FindPathName
+#define FindBaseExtension
 #define FindHandle
 #define FindResult
 
-#for {FindHandle = FindResult = FindFirst(PathName + "*.isl", 0); FindResult; FindResult = FindNext(FindHandle)} ProcessFoundFile
-#if FindHandle
-  #expr FindClose(FindHandle)
-#endif
-#ifdef UNICODE
-  #for {FindHandle = FindResult = FindFirst(PathName + "*.islu", 0); FindResult; FindResult = FindNext(FindHandle)} ProcessFoundFile
+#sub DoFindFilesLoop
+  #for {FindHandle = FindResult = FindFirst(FindPathName + "*." + FindBaseExtension, 0); FindResult; FindResult = FindNext(FindHandle)} ProcessFoundLanguagesFile
   #if FindHandle
     #expr FindClose(FindHandle)
   #endif
-#endif
+#endsub
+
+#sub DoFindFiles
+  #expr DoFindFilesLoop
+  #ifdef UNICODE
+    #expr FindBaseExtension = FindBaseExtension + "u"
+    #expr DoFindFilesLoop
+  #endif
+#endsub
+
+#define FindFiles(str PathName, str BaseExtension) \
+  FindPathName = PathName, FindBaseExtension = BaseExtension, \
+  DoFindFiles
+
+[Languages]
+Name: english; MessagesFile: "files\Default.isl,files\Languages\Setup\Default.isl"
+; Generate [Languages] entries for all official translations
+#expr FindFiles("files\Languages\", "isl")
 
 [Messages]
-; two "Setup" on the same line looks weird, so put a line break in between
+; Two "Setup" on the same line looks weird, so put a line break in between
 english.WelcomeLabel1=Welcome to the Inno Setup%nSetup Wizard
 
 [Tasks]
@@ -74,6 +94,7 @@ Name: fileassoc; Description: "{cm:AssocFileExtension,Inno Setup,.iss}"
 ; Remove Unicode-only files if needed
 #ifndef UNICODE
 Type: files; Name: "{app}\Languages\*.islu"
+Type: files; Name: "{app}\Examples\UnicodeExample1.iss"
 #endif
 ; Remove ISPP files if needed (leave ISPP.chm)
 Type: files; Name: "{app}\ISPP.dll"; Check: not ISPPCheck
@@ -81,8 +102,6 @@ Type: files; Name: "{app}\ISPPBuiltins.iss"; Check: not ISPPCheck
 ; Remove old ISPP files
 Type: files; Name: "{app}\ISCmplr.dls"
 Type: files; Name: "{app}\Builtins.iss"
-; Older versions created the desktop icon under {userdesktop}
-Type: files; Name: "{userdesktop}\Inno Setup Compiler.lnk"
 
 [Files]
 ; Files used by [Code] first so these can be quickly decompressed despite solid compression
@@ -143,6 +162,9 @@ Source: "Examples\CodeDll.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion 
 Source: "Examples\CodeAutomation.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion touch
 Source: "Examples\CodeAutomation2.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion touch
 Source: "Examples\CodePrepareToInstall.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion touch
+#ifdef UNICODE
+Source: "Examples\UnicodeExample1.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion touch
+#endif
 Source: "Examples\UninstallCodeExample1.iss"; DestDir: "{app}\Examples"; Flags: ignoreversion touch
 Source: "Examples\MyDll.dll"; DestDir: "{app}\Examples"; Flags: ignoreversion signonce touch
 Source: "Examples\MyDll\C\MyDll.c"; DestDir: "{app}\Examples\MyDll\C"; Flags: ignoreversion touch
@@ -178,13 +200,6 @@ Filename: "{app}\Compil32.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchPro
 
 [UninstallRun]
 Filename: "{app}\Compil32.exe"; Parameters: "/UNASSOC"; RunOnceId: "RemoveISSAssoc"
-
-[CustomMessages]
-ISPPTitle=Inno Setup Preprocessor
-ISPPSubtitle=Would you like to install Inno Setup Preprocessor?
-ISPPText=Inno Setup Preprocessor (ISPP) is an official add-on for Inno Setup. ISPP allows you to conditionally compile parts of scripts, to use compile time variables in your scripts and to use built-in functions which for example can read from the registry or INI files at compile time.%n%nISPP also contains a special version of the ISCC command line compiler which can take variable definitions as command line parameters and use them during compilation.
-ISPPText2=Select whether you would like to install ISPP, then click Next.
-ISPPCheck=&Install Inno Setup Preprocessor
 
 [Code]
 var

@@ -736,6 +736,12 @@ begin
     Stack.SetInt(PStart, PathCharLength(Stack.GetString(PStart-1), Stack.GetInt(PStart-2)));
   end else if Proc.Name = 'SETNTFSCOMPRESSION' then begin
     Stack.SetBool(PStart, SetNTFSCompressionRedir(ScriptFuncDisableFsRedir, Stack.GetString(PStart-1), Stack.GetBool(PStart-2)));
+  end else if Proc.Name = 'ISWILDCARD' then begin
+    Stack.SetBool(PStart, IsWildcard(Stack.GetString(PStart-1)));
+  end else if Proc.Name = 'WILDCARDMATCH' then begin
+    S := Stack.GetString(PStart-1);
+    N := Stack.GetString(PStart-2);
+    Stack.SetBool(PStart, WildcardMatch(PChar(S), PChar(N)));
   end else
     Result := False;
 end;
@@ -1039,6 +1045,14 @@ begin
     Stack.SetBool(PStart, Is64BitInstallMode);
   end else if Proc.Name = 'PROCESSORARCHITECTURE' then begin
     Stack.SetInt(PStart, Integer(ProcessorArchitecture));
+  end else if Proc.Name = 'ISX86' then begin
+    Stack.SetBool(PStart, ProcessorArchitecture = paX86);
+  end else if Proc.Name = 'ISX64' then begin
+    Stack.SetBool(PStart, ProcessorArchitecture = paX64);
+  end else if Proc.Name = 'ISIA64' then begin
+    Stack.SetBool(PStart, ProcessorArchitecture = paIA64);
+  end else if Proc.Name = 'ISARM64' then begin
+    Stack.SetBool(PStart, ProcessorArchitecture = paARM64);
   end else if Proc.Name = 'CUSTOMMESSAGE' then begin
     Stack.SetString(PStart, CustomMessage(Stack.GetString(PStart-1)));
   end else if Proc.Name = 'RMSESSIONSTARTED' then begin
@@ -1293,6 +1307,10 @@ begin
     Stack.SetInt(PStart, CompareStr(Stack.GetString(PStart-1), Stack.GetString(PStart-2)));
   end else if Proc.Name = 'COMPARETEXT' then begin
     Stack.SetInt(PStart, CompareText(Stack.GetString(PStart-1), Stack.GetString(PStart-2)));
+  end else if Proc.Name = 'SAMESTR' then begin
+    Stack.SetBool(PStart, CompareStr(Stack.GetString(PStart-1), Stack.GetString(PStart-2)) = 0);
+  end else if Proc.Name = 'SAMETEXT' then begin
+    Stack.SetBool(PStart, CompareText(Stack.GetString(PStart-1), Stack.GetString(PStart-2)) = 0);
   end else if Proc.Name = 'GETDATETIMESTRING' then begin
     OldDateSeparator := {$IFDEF IS_DXE}FormatSettings.{$ENDIF}DateSeparator;
     OldTimeSeparator := {$IFDEF IS_DXE}FormatSettings.{$ENDIF}TimeSeparator;

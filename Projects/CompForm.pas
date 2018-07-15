@@ -2,7 +2,7 @@ unit CompForm;
 
 {
   Inno Setup
-  Copyright (C) 1997-2016 Jordan Russell
+  Copyright (C) 1997-2018 Jordan Russell
   Portions by Martijn Laan
   For conditions of distribution and use, see LICENSE.TXT.
 
@@ -422,6 +422,8 @@ var
   CommandLineWizard: Boolean;
 
 function GenerateGuid: String;
+function ISPPInstalled: Boolean;
+function ISCryptInstalled: Boolean;
 procedure InitFormFont(Form: TForm);
 
 implementation
@@ -549,6 +551,17 @@ begin
     CoTaskMemFree(P);
   end;
 end;
+
+function ISPPInstalled: Boolean;
+begin
+  Result := NewFileExists(PathExtractPath(NewParamStr(0)) + 'ISPP.dll');
+end;
+
+function ISCryptInstalled: Boolean;
+begin
+  Result := NewFileExists(PathExtractPath(NewParamStr(0)) + 'iscrypt.dll');
+end;
+
 
 { TISScintEdit }
 
@@ -843,6 +856,7 @@ begin
   SetFakeShortCut(BStopCompile, VK_ESCAPE, []);
 
   MemoStyler := TInnoSetupStyler.Create(Self);
+  MemoStyler.IsppInstalled := IsppInstalled;
 
   Memo := TISScintEdit.Create(Self);
   Memo.AcceptDroppedFiles := True;
@@ -2188,8 +2202,8 @@ begin
     String(FCompilerVersion.Version) + SNewLine;
   if FCompilerVersion.Title <> 'Inno Setup' then
     S := S + (SNewLine + 'Based on Inno Setup' + SNewLine);
-  S := S + ('Copyright (C) 1997-2016 Jordan Russell' + SNewLine +
-    'Portions Copyright (C) 2000-2016 Martijn Laan' + SNewLine +
+  S := S + ('Copyright (C) 1997-2018 Jordan Russell' + SNewLine +
+    'Portions Copyright (C) 2000-2018 Martijn Laan' + SNewLine +
     'All rights reserved.' + SNewLine2 +
     'Inno Setup home page:' + SNewLine +
     'http://www.innosetup.com/' + SNewLine2 +

@@ -168,7 +168,7 @@ DirDoesntExist=Der Ordner:%n%n%1%n%nist nicht vorhanden. Soll der Ordner erstell
 ; *** "Select Components" wizard page
 WizardSelectComponents=Komponenten auswählen
 SelectComponentsDesc=Welche Komponenten sollen installiert werden?
-SelectComponentsLabel2=Wählen Sie die Komponenten aus, die Sie installieren möchten. Klicken Sie auf "Weiter", wenn sie bereit sind fortzufahren.
+SelectComponentsLabel2=Wählen Sie die Komponenten aus, die Sie installieren möchten. Klicken Sie auf "Weiter", wenn Sie bereit sind fortzufahren.
 FullInstallation=Vollständige Installation
 ; if possible don't translate 'Compact' as 'Minimal' (I mean 'Minimal' in your language)
 CompactInstallation=Kompakte Installation
@@ -220,7 +220,7 @@ ErrorCloseApplications=Das Setup konnte nicht alle Anwendungen automatisch schli
 
 ; *** "Installing" wizard page
 WizardInstalling=Installiere ...
-InstallingLabel=Warten Sie bitte während [name] auf Ihrem Computer installiert wird.
+InstallingLabel=Warten Sie bitte, während [name] auf Ihrem Computer installiert wird.
 
 ; *** "Setup Completed" wizard page
 FinishedHeadingLabel=Beenden des [name] Setup-Assistenten
@@ -238,11 +238,11 @@ RunEntryExec=%1 starten
 RunEntryShellExec=%1 anzeigen
 
 ; *** "Setup Needs the Next Disk" stuff
-ChangeDiskTitle=Nächste Diskette einlegen
-SelectDiskLabel2=Legen Sie bitte Diskette %1 ein, und klicken Sie auf "OK".%n%nWenn sich die Dateien von dieser Diskette in einem anderen als dem angezeigten Ordner befinden, dann geben Sie bitte den korrekten Pfad ein oder klicken auf "Durchsuchen".
+ChangeDiskTitle=Nächsten Datenträger einlegen
+SelectDiskLabel2=Legen Sie bitte Datenträger %1 ein, und klicken Sie auf "OK".%n%nWenn sich die Dateien von diesem Datenträger in einem anderen als dem angezeigten Ordner befinden, dann geben Sie bitte den korrekten Pfad ein oder klicken auf "Durchsuchen".
 PathLabel=&Pfad:
-FileNotInDir2=Die Datei "%1" befindet sich nicht in "%2". Bitte Ordner ändern oder richtige Diskette einlegen.
-SelectDirectoryLabel=Geben Sie bitte an, wo die nächste Diskette eingelegt wird.
+FileNotInDir2=Die Datei "%1" befindet sich nicht in "%2". Bitte Ordner ändern oder richtigen Datenträger einlegen.
+SelectDirectoryLabel=Geben Sie bitte an, wo der nächste Datenträger eingelegt wird.
 
 ; *** Installation phase messages
 SetupAborted=Das Setup konnte nicht abgeschlossen werden.%n%nBeheben Sie bitte das Problem, und starten Sie das Setup erneut.
@@ -308,7 +308,7 @@ UninstallUnknownEntry=In der Deinstallations-Datei wurde ein unbekannter Eintrag
 ConfirmUninstall=Sind Sie sicher, dass Sie %1 und alle zugehörigen Komponenten entfernen möchten?
 UninstallOnlyOnWin64=Diese Installation kann nur unter 64-bit Windows-Versionen entfernt werden.
 OnlyAdminCanUninstall=Diese Installation kann nur von einem Benutzer mit Administrator-Rechten entfernt werden.
-UninstallStatusLabel=Warten Sie bitte während %1 von Ihrem Computer entfernt wird.
+UninstallStatusLabel=Warten Sie bitte, während %1 von Ihrem Computer entfernt wird.
 UninstalledAll=%1 wurde erfolgreich von Ihrem Computer entfernt.
 UninstalledMost=Entfernen von %1 beendet.%n%nEinige Komponenten konnten nicht entfernt werden. Diese können von Ihnen manuell gelöscht werden.
 UninstalledAndNeedsRestart=Um die Deinstallation von %1 abzuschließen, muss Ihr Computer neu gestartet werden.%n%nMöchten Sie jetzt neu starten?
