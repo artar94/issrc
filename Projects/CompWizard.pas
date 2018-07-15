@@ -141,8 +141,6 @@ type
     FResultScript: String;
     function FixLabel(const S: String): String;
     procedure SetWizardName(const WizardName: String);
-    function ISPPInstalled: Boolean;
-    function ISCryptInstalled: Boolean;
     procedure CurPageChanged;
     function SkipCurPage: Boolean;
     procedure AddWizardFile(const Source: String; const RecurseSubDirs, CreateAllSubDirs: Boolean);
@@ -216,16 +214,6 @@ begin
   FWizardName := WizardName;
 end;
 
-function TWizardForm.ISPPInstalled(): Boolean;
-begin
-  Result := NewFileExists(PathExtractPath(NewParamStr(0)) + 'ISPP.dll');
-end;
-
-function TWizardForm.ISCryptInstalled(): Boolean;
-begin
-  Result := NewFileExists(PathExtractPath(NewParamStr(0)) + 'iscrypt.dll');
-end;
-
 { --- }
 
 {$IFDEF IS_D7}
@@ -234,6 +222,18 @@ type
 {$ENDIF}
 
 procedure TWizardForm.FormCreate(Sender: TObject);
+
+  procedure AddLanguages(const Extension: String);
+  var
+    SearchRec: TSearchRec;
+  begin
+    if FindFirst(PathExtractPath(NewParamStr(0)) + 'Languages\*.' + Extension, faAnyFile, SearchRec) = 0 then begin
+      repeat
+        FLanguages.Add(SearchRec.Name);
+      until FindNext(SearchRec) <> 0;
+      FindClose(SearchRec);
+    end;
+  end;
 
   procedure MakeBold(const Ctl: TNewStaticText);
   begin
@@ -253,7 +253,6 @@ procedure TWizardForm.FormCreate(Sender: TObject);
   end;
 
 var
-  SearchRec: TSearchRec;
   I: Integer;
 begin
   FResult := wrNone;
@@ -262,14 +261,11 @@ begin
   FWizardFiles := TList.Create;
 
   FLanguages := TStringList.Create;
-  //note: *.isl will also match .islu files
-  if FindFirst(PathExtractPath(NewParamStr(0)) + 'Languages\*.isl', faAnyFile, SearchRec) = 0 then begin
-    repeat
-      FLanguages.Add(SearchRec.Name);
-    until FindNext(SearchRec) <> 0;
-    FindClose(SearchRec);
-  end;
-  FLanguages.Sort;
+  FLanguages.Sorted := True;
+  FLanguages.Duplicates := dupIgnore; { Some systems also return .islu files when searching for *.isl }
+  AddLanguages('isl'); 
+  AddLanguages('islu');
+  FLanguages.Sorted := False;
   FLanguages.Insert(0, LanguagesDefaultIsl);
 
   InitFormFont(Self);
@@ -980,7 +976,7 @@ begin
         Icons := Icons + 'Name: "{commondesktop}\' + AppNameEdit.Text + '"; Filename: "{app}\' + AppExeName + '"; Tasks: desktopicon' + SNewLine;
       end;
       if QuickLaunchIconCheck.Enabled and QuickLaunchIconCheck.Checked then begin
-        Tasks := Tasks + 'Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 0,6.1' + SNewLine;
+        Tasks := Tasks + 'Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1' + SNewLine;
         Icons := Icons + 'Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\' + AppNameEdit.Text + '"; Filename: "{app}\' + AppExeName + '"; Tasks: quicklaunchicon' + SNewLine;
       end;
     end;

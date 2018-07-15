@@ -80,27 +80,33 @@ begin
   SetAppTaskbarProgressState(States[NewState]);
 end;
 
-function CalcFilesSize: Integer64;
+procedure CalcFilesSize(var InstallFilesSize, AfterInstallFilesSize: Integer64);
 var
   N: Integer;
   CurFile: PSetupFileEntry;
+  FileSize: Integer64;
 begin
-  Result.Hi := 0;
-  Result.Lo := 0;
+  InstallFilesSize.Hi := 0;
+  InstallFilesSize.Lo := 0;
+  AfterInstallFilesSize := InstallFilesSize;
   for N := 0 to Entries[seFile].Count-1 do begin
     CurFile := PSetupFileEntry(Entries[seFile][N]);
     if ShouldProcessFileEntry(WizardComponents, WizardTasks, CurFile, False) then begin
-      with CurFile^ do
+      with CurFile^ do begin
         if LocationEntry <> -1 then  { not an "external" file }
-          Inc6464(Result, PSetupFileLocationEntry(Entries[seFileLocation][
-           LocationEntry])^.OriginalSize)
+          FileSize := PSetupFileLocationEntry(Entries[seFileLocation][
+           LocationEntry])^.OriginalSize
         else
-          Inc6464(Result, ExternalSize);
+          FileSize := ExternalSize;
+        Inc6464(InstallFilesSize, FileSize);
+        if not (foDeleteAfterInstall in Options) then
+          Inc6464(AfterInstallFilesSize, FileSize);
       end;
+    end;
   end;
 end;
 
-procedure InitProgressGauge(const FilesSize: Integer64);
+procedure InitProgressGauge(const InstallFilesSize: Integer64);
 var
   NewMaxValue: Integer64;
 begin
@@ -109,7 +115,7 @@ begin
   NewMaxValue.Lo := 1000 * Entries[seIcon].Count;
   if Entries[seIni].Count <> 0 then Inc(NewMaxValue.Lo, 1000);
   if Entries[seRegistry].Count <> 0 then Inc(NewMaxValue.Lo, 1000);
-  Inc6464(NewMaxValue, FilesSize);
+  Inc6464(NewMaxValue, InstallFilesSize);
   { To avoid progress updates that are too small to result in any visible
     change, divide the Max value by 2 until it's under 1500 }
   ProgressShiftCount := 0;
@@ -431,7 +437,7 @@ var
         [FuncNames[Func], IntToStr(ErrorCode), Win32ErrorString(ErrorCode)]));
   end;
 
-  procedure RegisterUninstallInfo(const UninstallRegKeyBaseName: String; const FilesSize: Integer64);
+  procedure RegisterUninstallInfo(const UninstallRegKeyBaseName: String; const AfterInstallFilesSize: Integer64);
   { Stores uninstall information in the Registry so that the program can be
     uninstalled through the Control Panel Add/Remove Programs applet. }
   var
@@ -509,18 +515,24 @@ var
     else
       RootKey := HKEY_CURRENT_USER;
     SubkeyName := NEWREGSTR_PATH_UNINSTALL + '\' + UninstallRegKeyBaseName + '_is1';
+ 
+    Log('Deleting any uninstall keys left over from previous installs');
 
-    { Delete any uninstall keys left over from previous installs }
     RegDeleteKeyIncludingSubkeys(InstallDefaultRegView, HKEY_CURRENT_USER, PChar(SubkeyName));
     if IsAdmin then
       RegDeleteKeyIncludingSubkeys(InstallDefaultRegView, HKEY_LOCAL_MACHINE, PChar(SubkeyName));
+
+    LogFmt('Creating new uninstall key: %s\%s', [GetRegRootKeyName(RootKey), SubkeyName]);
 
     { Create uninstall key }
     ErrorCode := RegCreateKeyExView(InstallDefaultRegView, RootKey, PChar(SubkeyName),
       0, nil, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nil, H2, nil);
     if ErrorCode <> ERROR_SUCCESS then
       RegError(reRegCreateKeyEx, RootKey, SubkeyName, ErrorCode);
+ 
     try
+      Log('Writing uninstall key values.');
+    
       { do not localize or change any of the following strings }
       SetStringValue(H2, 'Inno Setup: Setup Version', SetupVersion);
       if shCreateAppDir in SetupHeader.Options then
@@ -580,7 +592,7 @@ var
       SetDWordValue(H2, 'NoRepair', 1);
       SetStringValue(H2, 'InstallDate', GetInstallDateString);
       if ExtractMajorMinorVersion(ExpandConst(SetupHeader.AppVersion), MajorVersion, MinorVersion) then begin
-        { Originally MSDN say to write to Major/MinorVersion, now it says to write to VersionMajor/Minor. So write to both. }
+        { Originally MSDN said to write to Major/MinorVersion, now it says to write to VersionMajor/Minor. So write to both. }
         SetDWordValue(H2, 'MajorVersion', MajorVersion);
         SetDWordValue(H2, 'MinorVersion', MinorVersion);
         SetDWordValue(H2, 'VersionMajor', MajorVersion);
@@ -592,7 +604,7 @@ var
       if WindowsVersion shr 16 >= $0601 then begin
         if (SetupHeader.UninstallDisplaySize.Hi = 0) and (SetupHeader.UninstallDisplaySize.Lo = 0) then begin
           { Estimate the size by taking the size of all files and adding any ExtraDiskSpaceRequired. }
-          EstimatedSize := FilesSize;
+          EstimatedSize := AfterInstallFilesSize;
           Inc6464(EstimatedSize, SetupHeader.ExtraDiskSpaceRequired);
           for I := 0 to Entries[seComponent].Count-1 do begin
             with PSetupComponentEntry(Entries[seComponent][I])^ do begin
@@ -2048,7 +2060,7 @@ var
   end;
 
   procedure CreateRegistryEntries;
-
+  
     function IsDeletableSubkey(const S: String): Boolean;
     { A sanity check to prevent people from shooting themselves in the foot by
       using
@@ -2074,18 +2086,16 @@ var
     var
       P: PSetupPermissionEntry;
     begin
-      if PermsEntry <> -1 then begin
-        LogFmt('Setting permissions on registry key: %s\%s',
-          [GetRegRootKeyName(RootKey), Subkey]);
-        P := Entries[sePermission][PermsEntry];
-        if not GrantPermissionOnKey(RegView, RootKey, Subkey,
-           TGrantPermissionEntry(Pointer(P.Permissions)^),
-           Length(P.Permissions) div SizeOf(TGrantPermissionEntry)) then begin
-          if GetLastError = ERROR_FILE_NOT_FOUND then
-            Log('Could not set permissions on the registry key because it currently does not exist.')
-          else
-            LogFmt('Failed to set permissions on registry key (%d).', [GetLastError]);
-        end;
+      LogFmt('Setting permissions on key: %s\%s',
+        [GetRegRootKeyName(RootKey), Subkey]);
+      P := Entries[sePermission][PermsEntry];
+      if not GrantPermissionOnKey(RegView, RootKey, Subkey,
+         TGrantPermissionEntry(Pointer(P.Permissions)^),
+         Length(P.Permissions) div SizeOf(TGrantPermissionEntry)) then begin
+        if GetLastError = ERROR_FILE_NOT_FOUND then
+          Log('Could not set permissions on the key because it currently does not exist.')
+        else
+          LogFmt('Failed to set permissions on the key (%d).', [GetLastError]);
       end;
     end;
 
@@ -2099,7 +2109,7 @@ var
     S: String;
     RV: TRegView;
     CurRegNumber: Integer;
-    NeedToRetry: Boolean;
+    NeedToRetry, DidDeleteKey: Boolean;
     ErrorCode: Longint;
     QV: Integer64;
 {$IFDEF UNICODE}
@@ -2112,49 +2122,74 @@ var
         if ShouldProcessEntry(WizardComponents, WizardTasks, Components, Tasks, Languages, Check) then begin
           DebugNotifyEntry(seRegistry, CurRegNumber);
           NotifyBeforeInstallEntry(BeforeInstall);
+          Log('-- Registry entry --');
           S := ExpandConst(Subkey);
+          LogFmt('Key: %s\%s', [GetRegRootKeyName(RootKey), Subkey]);
           N := ExpandConst(ValueName);
+          if N <> '' then
+            LogFmt('Value name: %s', [N]);
           RV := InstallDefaultRegView;
-          if ro32Bit in Options then
+          if (ro32Bit in Options) and (RV <> rv32Bit) then begin
+            Log('Non-default bitness: 32-bit');
             RV := rv32Bit;
+          end;
           if ro64Bit in Options then begin
             if not IsWin64 then
               InternalError('Cannot access 64-bit registry keys on this version of Windows');
-            RV := rv64Bit;
+            if RV <> rv64Bit then begin
+              Log('Non-default bitness: 64-bit');
+              RV := rv64Bit;
+            end;
           end;
 
           repeat
             NeedToRetry := False;
 
             try
-              if roDeleteKey in Options then
-                if IsDeletableSubkey(S) then
+              DidDeleteKey := False;
+              if roDeleteKey in Options then begin
+                if IsDeletableSubkey(S) then begin
+                  Log('Deleting the key.');
                   RegDeleteKeyIncludingSubkeys(RV, RootKey, PChar(S));
-              if (roDeleteKey in Options) and (Typ = rtNone) then
+                  DidDeleteKey := True;
+                end else
+                  Log('Key to delete is not deletable.');
+              end;
+              if (roDeleteKey in Options) and (Typ = rtNone) then begin
                 { We've deleted the key, and no value is to be created.
                   Our work is done. }
-              else if (roDeleteValue in Options) and (Typ = rtNone) then begin
+                if DidDeleteKey then
+                  Log('Successfully deleted the key.');
+              end else if (roDeleteValue in Options) and (Typ = rtNone) then begin
                 { We're going to delete a value with no intention of creating
                   another, so don't create the key if it didn't exist. }
                 if RegOpenKeyExView(RV, RootKey, PChar(S), 0, KEY_SET_VALUE, K) = ERROR_SUCCESS then begin
+                  Log('Deleting the value.');
                   RegDeleteValue(K, PChar(N));
                   RegCloseKey(K);
-                end;
+                  Log('Successfully deleted the value.');
+                  { Our work is done. }
+                end else
+                  Log('Key of value to delete does not exist.');
               end
               else begin
                 { Apply any permissions *before* calling RegCreateKeyExView or
                   RegOpenKeyExView, since we may (in a rather unlikely scenario)
                   need those permissions in order for those calls to succeed }
-                ApplyPermissions(RV, RootKey, S, PermissionsEntry);
+                if PermissionsEntry <> -1 then
+                  ApplyPermissions(RV, RootKey, S, PermissionsEntry);
                 { Create or open the key }
                 if not(roDontCreateKey in Options) then begin
+                  Log('Creating or opening the key.');
                   ErrorCode := RegCreateKeyExView(RV, RootKey, PChar(S), 0, nil,
                     REG_OPTION_NON_VOLATILE, KEY_QUERY_VALUE or KEY_SET_VALUE,
                     nil, K, @Disp);
                   if ErrorCode = ERROR_SUCCESS then begin
                     { Apply permissions again if a new key was created }
-                    if Disp = REG_CREATED_NEW_KEY then
+                    if (Disp = REG_CREATED_NEW_KEY) and (PermissionsEntry <> -1) then begin
+                      Log('New key created, need to set permissions again.');
                       ApplyPermissions(RV, RootKey, S, PermissionsEntry);
+                    end;
                   end
                   else begin
                     if not(roNoError in Options) then
@@ -2163,6 +2198,7 @@ var
                 end
                 else begin
                   if Typ <> rtNone then begin
+                    Log('Opening the key.');
                     ErrorCode := RegOpenKeyExView(RV, RootKey, PChar(S), 0,
                       KEY_QUERY_VALUE or KEY_SET_VALUE, K);
                     if (ErrorCode <> ERROR_SUCCESS) and (ErrorCode <> ERROR_FILE_NOT_FOUND) then
@@ -2173,6 +2209,7 @@ var
                     { We're not creating a value, and we're not just deleting a
                       value (that was checked above), so there is no reason to
                       even open the key }
+                    Log('Not creating the key or a value, skipping the key and only updating uninstall log.');
                     ErrorCode := ERROR_FILE_NOT_FOUND;
                   end;
                 end;
@@ -2180,11 +2217,14 @@ var
                   and/or creating the value }
                 if ErrorCode = ERROR_SUCCESS then
                 try
-                  if roDeleteValue in Options then
+                  if roDeleteValue in Options then begin
+                    Log('Deleting the value.');
                     RegDeleteValue(K, PChar(N));
+                  end;
                   if (Typ <> rtNone) and
                      (not(roCreateValueIfDoesntExist in Options) or
-                      not RegValueExists(K, PChar(N))) then
+                      not RegValueExists(K, PChar(N))) then begin
+                    Log('Creating or setting the value.');
                     case Typ of
                       rtString, rtExpandString, rtMultiString: begin
                           NewType := REG_SZ;
@@ -2258,17 +2298,25 @@ var
                              not(roNoError in Options) then
                             RegError(reRegSetValueEx, RootKey, S, ErrorCode);
                         end;
-                    end;
+                      end;
+                    Log('Successfully created or set the value.');
+                  end else if roDeleteValue in Options then
+                    Log('Successfully deleted the value.')
+                  else
+                    Log('Successfully created the key.')
+                  { Our work is done. }
                 finally
                   RegCloseKey(K);
                 end;
               end;
             except
-              if not AbortRetryIgnoreMsgBox(GetExceptMessage, SetupMessages[msgEntryAbortRetryIgnore]) then
+              if not AbortRetryIgnoreMsgBox(GetExceptMessage, SetupMessages[msgEntryAbortRetryIgnore]) then begin
+                Log('Retrying.');
                 NeedToRetry := True;
+              end;
             end;
           until not NeedToRetry;
-
+          
           if roUninsDeleteEntireKey in Options then
             if IsDeletableSubkey(S) then
               UninstLog.AddReg(utRegDeleteEntireKey, RV, RootKey, [S]);
@@ -2717,6 +2765,7 @@ var
       replacing an existing uninstall EXE, exit. }
     if UninstallTempExeFilename = '' then
       Exit;
+    Log('Renaming uninstaller.');
     RetriesLeft := 4;
     while True do begin
       Timer.Start(1000);
@@ -2727,6 +2776,8 @@ var
       if (LastError = ERROR_ACCESS_DENIED) or
          (LastError = ERROR_SHARING_VIOLATION) then begin
         if RetriesLeft > 0 then begin
+          LogFmt('The existing file appears to be in use (%d). ' +
+            'Retrying.', [LastError]);
           Dec(RetriesLeft);
           Timer.SleepUntilExpired;
           ProcessEvents;
@@ -2758,6 +2809,7 @@ var
       do nothing }
     if (UninstallExeCreated <> ueNone) and
        ((shSignedUninstaller in SetupHeader.Options) or DetachedUninstMsgFile) then begin
+      LogFmt('Writing uninstaller messages: %s', [UninstallMsgFilename]);
       F := TFile.Create(UninstallMsgFilename, fdCreateAlways, faWrite, fsNone);
       try
         if UninstallExeCreated = ueNew then
@@ -2854,13 +2906,13 @@ var
   Uninstallable, UninstLogCleared: Boolean;
   I: Integer;
   UninstallRegKeyBaseName: String;
-  FilesSize: Integer64;
+  InstallFilesSize, AfterInstallFilesSize: Integer64;
 begin
   Succeeded := False;
   Log('Starting the installation process.');
   SetCurrentDir(WinSystemDir);
-  FilesSize := CalcFilesSize;
-  InitProgressGauge(FilesSize);
+  CalcFilesSize(InstallFilesSize, AfterInstallFilesSize);
+  InitProgressGauge(InstallFilesSize);
   UninstallExeCreated := ueNone;
   UninstallDataCreated := False;
   UninstallMsgCreated := False;
@@ -2990,6 +3042,7 @@ begin
         modifications you want to add must be done before this is called. }
       if Uninstallable then begin
         SetStatusLabelText(SetupMessages[msgStatusSavingUninstall]);
+        Log('Saving uninstall information.');
         RenameUninstallExe;
         CreateUninstallMsgFile;
         { Register uninstall information so the program can be uninstalled
@@ -2997,7 +3050,7 @@ begin
           on NT 3.51 too, so that the uninstall entry for the app will appear
           if the user later upgrades to NT 4.0+. }
         if EvalDirectiveCheck(SetupHeader.CreateUninstallRegKey) then
-          RegisterUninstallInfo(UninstallRegKeyBaseName, FilesSize);
+          RegisterUninstallInfo(UninstallRegKeyBaseName, AfterInstallFilesSize);
         RecordUninstallRunEntries;
         UninstLog.Add(utEndInstall, [GetLocalTimeAsStr], 0);
         UninstLog.Save(UninstallDataFilename, AppendUninstallData,

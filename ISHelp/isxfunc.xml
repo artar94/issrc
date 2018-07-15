@@ -350,11 +350,6 @@ end;</pre></example>
         <description><p>Returns True if the user account that Setup/Uninstall is running under is a member of the local Administrators group.</p></description>
       </function>
       <function>
-        <name>IsPowerUserLoggedOn</name>
-        <prototype>function IsPowerUserLoggedOn: Boolean;</prototype>
-        <description><p>Returns True if the user account that Setup/Uninstall is running under is a member of the Power Users group.</p></description>
-      </function>
-      <function>
         <name>GetWindowsVersion</name>
         <prototype>function GetWindowsVersion: Cardinal;</prototype>
         <description><p>Returns the version number of Windows packed into a single integer. The upper 8 bits specify the major version; the following 8 bits specify the minor version; the lower 16 bits specify the build number. For example, this function will return $05000893 on Windows 2000, which is version 5.0.2195.</p>
@@ -466,7 +461,8 @@ end;</pre></example>
       <function>
         <name>IsWin64</name>
         <prototype>function IsWin64: Boolean;</prototype>
-        <description><p>Returns True if the system is running a 64-bit version of Windows that provides the API support Inno Setup requires to perform 64-bit installation tasks. If False is returned, you cannot utilize any of Inno Setup's 64-bit-only features.</p></description>
+        <description><p>Returns True if the system is running a 64-bit version of Windows that provides the API support Inno Setup requires to perform 64-bit installation tasks. If False is returned, you cannot utilize any of Inno Setup's 64-bit-only features.</p>
+<p>Do not use this function to detect <link topic="32vs64bitinstalls">64-bit install mode</link>, use <link topic="isxfunc_Is64BitInstallMode">Is64BitInstallMode</link> instead.</p></description>
         <remarks><p>This function will always return True on an x64 edition of Windows.</p>
 <p>For this function to return True on an Itanium edition of Windows, the system must be running Windows Server 2003 SP1 or later. Older versions lack APIs that Inno Setup requires (e.g. RegDeleteKeyEx).</p></remarks>
         <example><pre>begin
@@ -484,7 +480,7 @@ end;</pre></example>
       <function>
         <name>Is64BitInstallMode</name>
         <prototype>function Is64BitInstallMode: Boolean;</prototype>
-        <description><p>Returns True if Setup or Uninstall is running in <link topic="32vs64bitinstalls">64-bit mode</link>, or False if it is running in <link topic="32vs64bitinstalls">32-bit mode</link>.</p></description>
+        <description><p>Returns True if Setup or Uninstall is running in <link topic="32vs64bitinstalls">64-bit install mode</link>, or False if it is running in <link topic="32vs64bitinstalls">32-bit install mode</link>.</p></description>
         <remarks><p>When True is returned, it is safe to assume that <link topic="isxfunc_IsWin64">IsWin64</link> will also return True.</p></remarks>
         <example><pre>begin
   if Is64BitInstallMode then
@@ -500,7 +496,7 @@ end;</pre></example>
         <prototype>function ProcessorArchitecture: TSetupProcessorArchitecture;</prototype>
         <description><p>Returns the native processor architecture of the current system.</p>
 <p>TSetupProcessorArchitecture is defined as:</p>
-<p><tt>TSetupProcessorArchitecture = (paUnknown, paX86, paX64, paIA64);</tt></p></description>
+<p><tt>TSetupProcessorArchitecture = (paUnknown, paX86, paX64, paIA64, paARM64);</tt></p></description>
         <remarks><p>A 64-bit processor architecture will never be returned on 32-bit versions of Windows. Hence, you cannot use this function to detect a 64-bit AMD CPU on a 32-bit version of Windows; you'll just get back <tt>paX86</tt> if you try.</p>
 <p><tt>paUnknown</tt> is returned if Setup/Uninstall does not recognize the processor architecture. It can be assumed that an "unknown" architecture is at least capable of executing 32-bit code, or Setup/Uninstall wouldn't be running at all.</p>
 <p>If <tt>paIA64</tt> is returned, and <tt>ia64</tt> is <i>not</i> included in the value of the <link topic="setup_architecturesinstallin64bitmode">ArchitecturesInstallIn64BitMode</link> [Setup] section directive, you should not assume that Inno Setup's 64-bit-only features are available -- for example, the <tt>{pf64}</tt> constant. Those features only work when <link topic="isxfunc_IsWin64">IsWin64</link> returns True, and as documented, it may not return True on older Itanium versions of Windows that lack certain APIs Inno Setup requires.</p>
@@ -530,13 +526,58 @@ begin
     paX86: S := 'x86';
     paX64: S := 'x64';
     paIA64: S := 'Itanium';
+    paARM64: S := 'ARM64';
   else
     S := 'Unrecognized';
   end;
   MsgBox('Your processor architecture: ' + S, mbInformation, MB_OK);
 end;</pre></example>
-        <seealso><p><link topic="isxfunc_IsWin64">IsWin64</link><br />
+        <seealso><p><link topic="isxfunc_IsX86">IsX86</link><br />
+<link topic="isxfunc_IsX64">IsX64</link><br />
+<link topic="isxfunc_IsIA64">IsIA64</link><br />
+<link topic="isxfunc_IsARM64">IsARM64</link><br />
+<link topic="isxfunc_IsWin64">IsWin64</link><br />
 <link topic="isxfunc_Is64BitInstallMode">Is64BitInstallMode</link></p></seealso>
+      </function>
+      <function>
+        <name>IsX86</name>
+        <prototype>function IsX86: Boolean;</prototype>
+        <description><p>Returns True if the native processor architecture is x86.</p>
+<p>This function is a shorthand for <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link>. Be sure to read the <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link> topic before using this function.</p></description>
+        <seealso><p><link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link><br />
+<link topic="isxfunc_IsX64">IsX64</link><br />
+<link topic="isxfunc_IsIA64">IsIA64</link><br />
+<link topic="isxfunc_IsARM64">IsARM64</link></p></seealso>
+      </function>
+      <function>
+        <name>IsX64</name>
+        <prototype>function IsX64: Boolean;</prototype>
+        <description><p>Returns True if the native processor architecture is x64.</p>
+<p>This function is a shorthand for <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link>. Be sure to read the <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link> topic before using this function.</p></description>
+        <seealso><p><link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link><br />
+<link topic="isxfunc_IsX86">IsX86</link><br />
+<link topic="isxfunc_IsIA64">IsIA64</link><br />
+<link topic="isxfunc_IsARM64">IsARM64</link></p></seealso>
+      </function>
+      <function>
+        <name>IsIA64</name>
+        <prototype>function IsIA64: Boolean;</prototype>
+        <description><p>Returns True if the native processor architecture is ia64.</p>
+<p>This function is a shorthand for <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link>. Be sure to read the <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link> topic before using this function.</p></description>
+        <seealso><p><link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link><br />
+<link topic="isxfunc_IsX86">IsX86</link><br />
+<link topic="isxfunc_IsX64">IsX64</link><br />
+<link topic="isxfunc_IsARM64">IsARM64</link></p></seealso>
+      </function>
+      <function>
+        <name>IsARM64</name>
+        <prototype>function IsARM64: Boolean;</prototype>
+        <description><p>Returns True if the native processor architecture is arm64.</p>
+<p>This function is a shorthand for <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link>. Be sure to read the <link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link> topic before using this function.</p></description>
+        <seealso><p><link topic="isxfunc_ProcessorArchitecture">ProcessorArchitecture</link><br />
+<link topic="isxfunc_IsX86">IsX86</link><br />
+<link topic="isxfunc_IsX64">IsX64</link><br />
+<link topic="isxfunc_IsIA64">IsIA64</link></p></seealso>
       </function>
     </subcategory>
     <subcategory>
@@ -799,7 +840,7 @@ end;</pre></example>
       <function>
         <name>Pos</name>
         <prototype>function Pos(SubStr, S: String): Integer;</prototype>
-        <description><p>Searches for Substr within S and returns an integer value that is the index of the first character of Substr within S.<br />If Substr is not found, Pos returns zero.</p></description>
+        <description><p>Searches for Substr within S and returns an integer value that is the index of the first character of Substr within S.<br />If Substr is not found, Pos returns zero. The Pos function is case-sensitive.</p></description>
       </function>
       <function>
         <name>AddQuotes</name>
@@ -821,12 +862,32 @@ end;</pre></example>
       <function>
         <name>CompareText</name>
         <prototype>function CompareText(const S1, S2: string): Integer;</prototype>
-        <description><p>Compares the strings S1 and S2 and returns 0 if they are equal. If S1 is greater than S2, CompareText returns an integer greater than 0. If S1 is less than S2, CompareText returns an integer less than 0. The CompareText function is not case sensitive.</p></description>
+        <description><p>Compares the strings S1 and S2 and returns 0 if they are equal. If S1 is greater than S2, CompareText returns an integer greater than 0. If S1 is less than S2, CompareText returns an integer less than 0. The CompareText function is not case-sensitive.</p></description>
       </function>
       <function>
         <name>CompareStr</name>
         <prototype>function CompareStr(const S1, S2: string): Integer;</prototype>
         <description><p>Compares S1 to S2, with case-sensitivity. The return value is less than 0 if S1 is less than S2, 0 if S1 equals S2, or greater than 0 if S1 is greater than S2.</p></description>
+      </function>
+      <function>
+        <name>SameText</name>
+        <prototype>function SameText(const S1, S2: string): Boolean;</prototype>
+        <description><p>Compares the strings S1 and S2 and returns True if they are equal.  The SameText function is not case-sensitive.</p></description>
+      </function>
+      <function>
+        <name>SameStr</name>
+        <prototype>function SameStr(const S1, S2: string): Boolan;</prototype>
+        <description><p>Compares S1 to S2, with case-sensitivity. The return value is True if they are equal.</p></description>
+      </function>
+      <function>
+        <name>IsWildcard</name>
+        <prototype>function IsWildcard(const Pattern: String): Boolean;</prototype>
+        <description><p>Returns True if the specified pattern contains a wildcard.</p></description>
+      </function>
+      <function>
+        <name>WildcardMatch</name>
+        <prototype>function WildcardMatch(const Text, Pattern: String): Boolean;</prototype>
+        <description><p>Returns True if the specified text matches the specified pattern.</p></description>
       </function>
     </subcategory>
     <subcategory>
@@ -1422,7 +1483,7 @@ end;</pre></example>
       <function>
         <name>GetTempDir</name>
         <prototype>function GetTempDir: String;</prototype>
-        <description><p>Returns fully qualified path of the temporary directory, with trailing backslash. This does not use the Win32 function GetTempPath, due to platform differences.<br />Gets the temporary file path as follows:<br />1. The path specified by the TMP environment variable.<br />2. The path specified by the TEMP environment variable, if TMP is not defined or if TMP specifies a directory that does not exist.<br />3. The Windows directory, if both TMP and TEMP are not defined or specify nonexistent directories.</p></description>
+        <description><p>Returns fully qualified path of the temporary directory, with trailing backslash. This does not use the Win32 function GetTempPath, due to platform differences.<br />Gets the temporary file path as follows:<br />1. The path specified by the TMP environment variable.<br />2. The path specified by the TEMP environment variable, if TMP is not defined or if TMP specifies a directory that does not exist.<br />3. The path specified by the USERPROFILE environment variable, if both TMP and TEMP are not defined or specify nonexistent directories.<br />4. The Windows directory, if all the above TMP, TEMP and USERPROFILE are not defined or specify nonexistent directories.</p></description>
       </function>
       <function>
         <name>GetShellFolder</name>
@@ -1518,10 +1579,10 @@ end;</pre></example>
         <description><p>Controls whether built-in support functions that access files disable WOW64 file system redirection (with <link topic="64bitlimitations">some exceptions</link>). Specify True in the Enable parameter to leave redirection enabled when those functions are called; specify False to disable it. Returns the previous redirection state (True if redirection was enabled).</p>
 <p>If False is passed in the Enable parameter and the user isn't running a supported 64-bit version of Windows, an exception will be raised. To avoid the exception, call <link topic="isxfunc_IsWin64">IsWin64</link> first.</p></description>
         <remarks><p>After you've performed the operation that required changing the redirection state, be sure to restore the previous state. Always use a <tt>try..finally</tt> language construct to ensure that the previous state is restored even if an exception occurs. See below for an example.</p>
-<p>By default, file system redirection is enabled in <link topic="32vs64bitinstalls">32-bit mode</link> installs, and disabled in 64-bit mode installs.</p>
+<p>By default, file system redirection is enabled in <link topic="32vs64bitinstalls">32-bit install mode</link>, and disabled in 64-bit install mode.</p>
 <p>This function has no effect on calls to functions in external DLLs. When invoking external functions, file system redirection is always left enabled.</p>
 <p>It is legal to call this function with True in the Enable parameter if the user isn't running a 64-bit version of Windows. In such a case, the call has no effect.</p></remarks>
-        <example><p>The following example demonstrates how to launch an executable located in the 64-bit System directory. (Note: In a <link topic="32vs64bitinstalls">64-bit mode</link> install, it isn't necessary to call EnableFsRedirection because file system redirection is already disabled by default.)</p>
+        <example><p>The following example demonstrates how to launch an executable located in the 64-bit System directory. (Note: In <link topic="32vs64bitinstalls">64-bit install mode</link>, it isn't necessary to call EnableFsRedirection because file system redirection is already disabled by default.)</p>
 <pre>var
   OldState: Boolean;
   ResultCode: Integer;
@@ -1561,7 +1622,7 @@ end;</pre></example>
 <p>Do not include quotes in the Filename parameter; the function will add them automatically.</p>
 <p>The WorkingDir parameter can be an empty string, in which case it will try to extract a pathname from the Filename parameter and use that as the initial current directory for the process. If no pathname was specified in Filename, a default directory will be used.</p>
 <p>If you have a single string containing both a filename and parameters (e.g. a command line obtained from an UninstallString registry value), you need not separate them yourself; just pass <tt>'>'</tt> in the Filename parameter, and the full command line in the Params parameter. (Note that when this is done, the function's special platform-independent support for .bat and .cmd files is disabled; it simply passes the specified command line to CreateProcess without any processing.)</p>
-<p>By default, when Setup/Uninstall is running in <link topic="32vs64bitinstalls">64-bit mode</link>, this function disables WOW64 file system redirection when calling CreateProcess. It is possible to override this by calling <link topic="isxfunc_EnableFsRedirection">EnableFsRedirection</link>.</p></remarks>
+<p>By default, when Setup/Uninstall is running in <link topic="32vs64bitinstalls">64-bit install mode</link>, this function disables WOW64 file system redirection when calling CreateProcess. It is possible to override this by calling <link topic="isxfunc_EnableFsRedirection">EnableFsRedirection</link>.</p></remarks>
         <example><pre>var
   ResultCode: Integer;
 begin
@@ -1747,7 +1808,7 @@ end;</pre></example>
   // Register hhctrl.ocx located in the System directory.
   RegisterServer(Is64BitInstallMode, ExpandConstant('{sys}\hhctrl.ocx'), False);
 end;</pre>
-<p>Because we specify Is64BitInstallMode in the first parameter, it will register the 64-bit OCX in the 64-bit System directory when Setup is running in 64-bit mode. Otherwise, it will register the 32-bit OCX in the 32-bit System directory.</p></example>
+<p>Because we specify Is64BitInstallMode in the first parameter, it will register the 64-bit OCX in the 64-bit System directory when Setup is running in 64-bit install mode. Otherwise, it will register the 32-bit OCX in the 32-bit System directory.</p></example>
       </function>
       <function>
         <name>UnregisterServer</name>
@@ -1762,7 +1823,7 @@ end;</pre>
   // Register stdole2.tlb located in the System directory.
   RegisterTypeLibrary(Is64BitInstallMode, ExpandConstant('{sys}\stdole2.tlb'));
 end;</pre>
-<p>Because we specify Is64BitInstallMode in the first parameter, it will register the 64-bit type library in the 64-bit System directory when Setup is running in 64-bit mode. Otherwise, it will register the 32-bit type library in the 32-bit System directory.</p></example>
+<p>Because we specify Is64BitInstallMode in the first parameter, it will register the 64-bit type library in the 64-bit System directory when Setup is running in 64-bit install mode. Otherwise, it will register the 32-bit type library in the 32-bit System directory.</p></example>
       </function>
       <function>
         <name>UnregisterTypeLibrary</name>

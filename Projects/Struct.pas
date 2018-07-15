@@ -17,8 +17,8 @@ uses
 
 const
   SetupTitle = 'Inno Setup';
-  SetupVersion = '5.5.9 '{$IFDEF UNICODE}+'(u)'{$ELSE}+'(a)'{$ENDIF};
-  SetupBinVersion = (5 shl 24) + (5 shl 16) + (9 shl 8) + 0;
+  SetupVersion = '5.6.1 '{$IFDEF UNICODE}+'(u)'{$ELSE}+'(a)'{$ENDIF};
+  SetupBinVersion = (5 shl 24) + (6 shl 16) + (1 shl 8) + 0;
 
 type
   TSetupID = array[0..63] of AnsiChar;
@@ -29,14 +29,14 @@ type
   TDiskSliceID = array[1..8] of AnsiChar;
 const
   { SetupID is used by the Setup program to check if the SETUP.0 file is
-    compatible with with it. If you make any modifications to the records in
+    compatible with it. If you make any modifications to the records in
     this file it's recommended you change SetupID. Any change will do (like
     changing the letters or numbers), as long as your format is
     unrecognizable by the standard Inno Setup. }
-  SetupID: TSetupID = 'Inno Setup Setup Data (5.5.7)'{$IFDEF UNICODE}+' (u)'{$ENDIF};
+  SetupID: TSetupID = 'Inno Setup Setup Data (5.6.0)'{$IFDEF UNICODE}+' (u)'{$ENDIF};
   UninstallLogID: array[Boolean] of TUninstallLogID =
     ('Inno Setup Uninstall Log (b)', 'Inno Setup Uninstall Log (b) 64-bit');
-  MessagesHdrID: TMessagesHdrID = 'Inno Setup Messages (5.5.3)'{$IFDEF UNICODE}+' (u)'{$ENDIF};
+  MessagesHdrID: TMessagesHdrID = 'Inno Setup Messages (5.7.0)'{$IFDEF UNICODE}+' (u)'{$ENDIF};
   MessagesLangOptionsID: TMessagesLangOptionsID = '!mlo!001';
   ZLIBID: TCompID = 'zlb'#26;
   DiskSliceID: TDiskSliceID = 'idska32'#26;
@@ -70,12 +70,12 @@ type
   TSetupLanguageDetectionMethod = (ldUILanguage, ldLocale, ldNone);
   TSetupCompressMethod = (cmStored, cmZip, cmBzip, cmLZMA, cmLZMA2);
   TSetupSalt = array[0..7] of Byte;
-  TSetupProcessorArchitecture = (paUnknown, paX86, paX64, paIA64);
+  TSetupProcessorArchitecture = (paUnknown, paX86, paX64, paIA64, paARM64);
   TSetupProcessorArchitectures = set of TSetupProcessorArchitecture;
   TSetupDisablePage = (dpAuto, dpNo, dpYes);
 const
   SetupProcessorArchitectureNames: array[TSetupProcessorArchitecture] of String =
-    ('Unknown', 'x86', 'x64', 'Itanium');
+    ('Unknown', 'x86', 'x64', 'Itanium', 'ARM64');
 
 const
   SetupHeaderStrings = 28;

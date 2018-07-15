@@ -2,7 +2,7 @@ unit Compile;
 
 {
   Inno Setup
-  Copyright (C) 1997-2016 Jordan Russell
+  Copyright (C) 1997-2018 Jordan Russell
   Portions by Martijn Laan
   For conditions of distribution and use, see LICENSE.TXT.
 
@@ -156,7 +156,9 @@ type
     ssSignedUninstaller,
     ssSignedUninstallerDir,
     ssSignTool,
+    ssSignToolMinimumTimeBetween,
     ssSignToolRetryCount,
+    ssSignToolRetryDelay,
     ssSlicesPerDisk,
     ssSolidCompression,
     ssSourceDir,
@@ -175,6 +177,7 @@ type
     ssUninstallLogMode,
     ssUninstallRestartComputer,
     ssUninstallStyle,
+    ssUsedUserAreasWarning,
     ssUsePreviousAppDir,
     ssUsePreviousGroup,
     ssUsePreviousLanguage,
@@ -186,6 +189,7 @@ type
     ssVersionInfoCompany,
     ssVersionInfoCopyright,
     ssVersionInfoDescription,
+    ssVersionInfoOriginalFileName,
     ssVersionInfoProductName,
     ssVersionInfoProductVersion,
     ssVersionInfoProductTextVersion,
@@ -341,12 +345,15 @@ type
     FileLocationEntryFilenames: THashStringList;
     WarningsList: TLowFragStringList;
     ExpectedCustomMessageNames: TStringList;
+    UsedUserAreasWarning: Boolean;
+    UsedUserAreas: TStringList;
 
     DefaultLangData: TLangData;
     {$IFDEF UNICODE} PreLangDataList, {$ENDIF} LangDataList: TList;
     SignToolList: TList;
     SignTools, SignToolsParams: TStringList;
-    SignToolRetryCount: Integer;
+    SignToolRetryCount, SignToolRetryDelay, SignToolMinimumTimeBetween: Integer;
+    LastSignCommandStartTick: DWORD;
 
     OutputDir, OutputBaseFilename, OutputManifestFile, SignedUninstallerDir,
       ExeFilename: String;
@@ -375,7 +382,7 @@ type
 
     VersionInfoVersion, VersionInfoProductVersion: TFileVersionNumbers;
     VersionInfoVersionOriginalValue, VersionInfoCompany, VersionInfoCopyright,
-      VersionInfoDescription, VersionInfoTextVersion, VersionInfoProductName,
+      VersionInfoDescription, VersionInfoTextVersion, VersionInfoProductName, VersionInfoOriginalFileName,
       VersionInfoProductTextVersion, VersionInfoProductVersionOriginalValue: String;
     SetupIconFilename: String;
 
@@ -497,10 +504,11 @@ type
     procedure SeparateDirective(const Line: PChar; var Key, Value: String);
     procedure ShiftDebugEntryIndexes(AKind: TDebugEntryKind);
     procedure Sign(AExeFilename: String);
-    procedure SignCommand(const ACommand, AParams, AExeFilename: String; const RetryCount: Integer);
+    procedure SignCommand(const ACommand, AParams, AExeFilename: String; const RetryCount, RetryDelay, MinimumTimeBetween: Integer);
     procedure WriteDebugEntry(Kind: TDebugEntryKind; Index: Integer);
     procedure WriteCompiledCodeText(const CompiledCodeText: Ansistring);
     procedure WriteCompiledCodeDebugInfo(const CompiledCodeDebugInfo: AnsiString);
+    function CreateMemoryStreamsFromFiles(const ADirectiveName, AFiles: String): TList;
   public
     AppData: Longint;
     CallbackProc: TCompilerCallbackProc;
@@ -698,6 +706,77 @@ begin
   except
     Result.Free;
     raise Exception.CreateFmt(SCompilerReadError, [Filename, GetExceptMessage]);
+  end;
+end;
+
+function ExtractStr(var S: String; const Separator: Char): String;
+var
+  I: Integer;
+begin
+  repeat
+    I := PathPos(Separator, S);
+    if I = 0 then I := Length(S)+1;
+    Result := Trim(Copy(S, 1, I-1));
+    S := Trim(Copy(S, I+1, Maxint));
+  until (Result <> '') or (S = '');
+end;
+
+function TSetupCompiler.CreateMemoryStreamsFromFiles(const ADirectiveName, AFiles: String): TList;
+
+  procedure AddFile(const Filename: String);
+  begin
+    AddStatus(Format(SCompilerStatusReadingInFile, [FileName]));
+    Result.Add(CreateMemoryStreamFromFile(FileName));
+  end;
+
+var
+  Filename, SearchSubDir: String;
+  AFilesList: TStringList;
+  I: Integer;
+  H: THandle;
+  FindData: TWin32FindData;
+begin
+  Result := TList.Create;
+  try
+    { In older versions only one file could be listed and comma's could be used so
+      before treating AFiles as a list, first check if it's actually a single file
+      with a comma in its name. }
+    Filename := PrependSourceDirName(AFiles);
+    if NewFileExists(Filename) then
+       AddFile(Filename)
+    else begin
+      AFilesList := TStringList.Create;
+      try
+        ProcessWildcardsParameter(AFiles, AFilesList,
+          Format(SCompilerDirectivePatternTooLong, [ADirectiveName]));
+        for I := 0 to AFilesList.Count-1 do begin
+          Filename := PrependSourceDirName(AFilesList[I]);
+          if IsWildcard(FileName) then begin
+            H := FindFirstFile(PChar(Filename), FindData);
+            if H <> INVALID_HANDLE_VALUE then begin
+              try
+                SearchSubDir := PathExtractPath(Filename);
+                repeat
+                  if FindData.dwFileAttributes and (FILE_ATTRIBUTE_DIRECTORY or FILE_ATTRIBUTE_HIDDEN) <> 0 then
+                    Continue;
+                   AddFile(SearchSubDir + FindData.cFilename);
+                until not FindNextFile(H, FindData);
+              finally
+                Windows.FindClose(H);
+              end;
+            end;
+          end else
+            AddFile(Filename);  { use the case specified in the script }
+        end;
+      finally
+        AFilesList.Free;
+      end;
+    end;
+  except
+    for I := Result.Count-1 downto 0 do
+      TMemoryStream(Result[I]).Free;
+    Result.Free;
+    raise;
   end;
 end;
 
@@ -1659,6 +1738,9 @@ begin
   FileLocationEntryFilenames := THashStringList.Create;
   WarningsList := TLowFragStringList.Create;
   ExpectedCustomMessageNames := TStringList.Create;
+  UsedUserAreas := TStringList.Create;
+  UsedUserAreas.Sorted := True;
+  UsedUserAreas.Duplicates := dupIgnore;
   DefaultLangData := TLangData.Create;
 {$IFDEF UNICODE}
   PreLangDataList := TLowFragList.Create;
@@ -1693,6 +1775,7 @@ begin
   PreLangDataList.Free;
 {$ENDIF}
   DefaultLangData.Free;
+  UsedUserAreas.Free;
   ExpectedCustomMessageNames.Free;
   WarningsList.Free;
   FileLocationEntryFilenames.Free;
@@ -2777,19 +2860,23 @@ function TSetupCompiler.CheckConst(const S: String; const MinVersion: TSetupVers
   end;
 
 const
-  Consts: array[0..38] of String = (
+  UserConsts: array[0..1] of String = (
+    'userpf', 'usercf');
+  Consts: array[0..36] of String = (
     'src', 'srcexe', 'tmp', 'app', 'win', 'sys', 'sd', 'groupname', 'fonts',
     'hwnd', 'pf', 'pf32', 'pf64', 'cf', 'cf32', 'cf64', 'computername', 'dao',
     'cmd', 'username', 'wizardhwnd', 'sysuserinfoname', 'sysuserinfoorg',
     'userinfoname', 'userinfoorg', 'userinfoserial', 'uninstallexe',
     'language', 'syswow64', 'log', 'dotnet11', 'dotnet20', 'dotnet2032',
-    'dotnet2064', 'dotnet40', 'dotnet4032', 'dotnet4064', 'userpf', 'usercf');
-  ShellFolderConsts: array[0..18] of String = (
-    'group', 'userdesktop', 'userstartmenu', 'userprograms', 'userstartup',
-    'commondesktop', 'commonstartmenu', 'commonprograms', 'commonstartup',
-    'sendto', 'userappdata', 'userdocs', 'commonappdata', 'commondocs',
-    'usertemplates', 'commontemplates', 'localappdata',
-    'userfavorites', 'commonfavorites');
+    'dotnet2064', 'dotnet40', 'dotnet4032', 'dotnet4064');
+  UserShellFolderConsts: array[0..9] of String = (
+    'userdesktop', 'userstartmenu', 'userprograms', 'userstartup',
+    'userappdata', 'userdocs', 'usertemplates', 'userfavorites', 'usersendto',
+    'sendto' { old name of 'usersendto' });
+  ShellFolderConsts: array[0..9] of String = (
+    'group', 'commondesktop', 'commonstartmenu', 'commonprograms', 'commonstartup',
+    'commonappdata', 'commondocs', 'commontemplates', 'localappdata',
+    'commonfavorites');
   AllowedConstsNames: array[TAllowedConst] of String = (
     'olddata', 'break');
 var
@@ -2854,9 +2941,19 @@ begin
               AbortCompileOnLineFmt(SCompilerBadCustomMessageConst, [Cnst]);
             goto 1;
           end;
+          for K := Low(UserConsts) to High(UserConsts) do
+            if Cnst = UserConsts[K] then begin
+              UsedUserAreas.Add(Cnst);
+              goto 1;
+            end;
           for K := Low(Consts) to High(Consts) do
             if Cnst = Consts[K] then
               goto 1;
+          for K := Low(UserShellFolderConsts) to High(UserShellFolderConsts) do
+            if Cnst = UserShellFolderConsts[K] then begin
+              UsedUserAreas.Add(Cnst);
+              goto 1;
+            end;
           for K := Low(ShellFolderConsts) to High(ShellFolderConsts) do
             if Cnst = ShellFolderConsts[K] then
               goto 1;
@@ -2947,18 +3044,6 @@ begin
     if Kind = cikDirectiveCheck then
       AbortCompileOnLineFmt(SCompilerEntryInvalid2, ['Setup', ParamName]); 
   end;
-end;
-
-function ExtractStr(var S: String; const Separator: Char): String;
-var
-  I: Integer;
-begin
-  repeat
-    I := PathPos(Separator, S);
-    if I = 0 then I := Length(S)+1;
-    Result := Trim(Copy(S, 1, I-1));
-    S := Trim(Copy(S, I+1, Maxint));
-  until (Result <> '') or (S = '');
 end;
 
 function ExtractFlag(var S: String; const FlagStrs: array of PChar): Integer;
@@ -3549,7 +3634,7 @@ var
 
   function StrToArchitectures(S: String; const Only64Bit: Boolean): TSetupProcessorArchitectures;
   const
-    ProcessorFlags: array[0..2] of PChar = ('x86', 'x64', 'ia64');
+    ProcessorFlags: array[0..3] of PChar = ('x86', 'x64', 'ia64', 'arm64');
   begin
     Result := [];
     while True do
@@ -3562,6 +3647,10 @@ var
              Include(Result, paX86);
         1: Include(Result, paX64);
         2: Include(Result, paIA64);
+        3: if Only64Bit then
+             Invalid //ARM64 can actually only run x86 binaries
+           else
+             Include(Result, paARM64);
       end;
   end;
 
@@ -3724,7 +3813,7 @@ begin
         AIncludes := TStringList.Create;
         try
           ProcessWildcardsParameter(Value, AIncludes,
-            SCompilerDirectiveCloseApplicationsFilterTooLong);
+            Format(SCompilerDirectivePatternTooLong, ['CloseApplicationsFilter']));
           SetupHeader.CloseApplicationsFilter := StringsToCommaString(AIncludes);
         finally
           AIncludes.Free;
@@ -4083,11 +4172,23 @@ begin
         SignTools.Add(SignTool);
         SignToolsParams.Add(SignToolParams);
       end;
+    ssSignToolMinimumTimeBetween: begin
+        I := StrToIntDef(Value, -1);
+        if I < 0 then
+          Invalid;
+        SignToolMinimumTimeBetween := I;
+      end;
     ssSignToolRetryCount: begin
         I := StrToIntDef(Value, -1);
         if I < 0 then
           Invalid;
         SignToolRetryCount := I;
+      end;
+    ssSignToolRetryDelay: begin
+        I := StrToIntDef(Value, -1);
+        if I < 0 then
+          Invalid;
+        SignToolRetryDelay := I;
       end;
     ssSlicesPerDisk: begin
         I := StrToIntDef(Value, -1);
@@ -4167,6 +4268,9 @@ begin
     ssUsePreviousAppDir: begin
         SetSetupHeaderOption(shUsePreviousAppDir);
       end;
+    ssUsedUserAreasWarning: begin
+        UsedUserAreasWarning := StrToBool(Value);
+      end;
     ssUsePreviousGroup: begin
         SetSetupHeaderOption(shUsePreviousGroup);
       end;
@@ -4196,6 +4300,9 @@ begin
       end;
     ssVersionInfoDescription: begin
         VersionInfoDescription := Value;
+      end;
+    ssVersionInfoOriginalFileName: begin
+        VersionInfoOriginalFileName := Value;
       end;
     ssVersionInfoProductName: begin
         VersionInfoProductName := Value;
@@ -5400,9 +5507,10 @@ begin
       end;
       if S = 'HKCR' then
         RootKey := HKEY_CLASSES_ROOT
-      else if S = 'HKCU' then
-        RootKey := HKEY_CURRENT_USER
-      else if S = 'HKLM' then
+      else if S = 'HKCU' then begin
+        UsedUserAreas.Add(S);
+        RootKey := HKEY_CURRENT_USER;
+      end else if S = 'HKLM' then
         RootKey := HKEY_LOCAL_MACHINE
       else if S = 'HKU' then
         RootKey := HKEY_USERS
@@ -7196,7 +7304,7 @@ begin
     for J := Low(LangData.Messages) to High(LangData.Messages) do
       if not LangData.MessagesDefined[J] then begin
         { Use the message from Default.isl }
-        if J <> msgTranslatorNote then
+        if not (J in [msgHelpTextNote, msgTranslatorNote]) then
           WarningsList.Add(Format(SCompilerMessagesMissingMessageWarning,
             [Copy(GetEnumName(TypeInfo(TSetupMessageID), Ord(J)), 4, Maxint),
              PSetupLanguageEntry(LanguageEntries[I]).Name]));
@@ -7405,11 +7513,11 @@ var
 begin
   for I := 0 to SignTools.Count - 1 do begin
     SignToolIndex := FindSignToolIndexByName(SignTools[I]); //can't fail, already checked
-    SignCommand(TSignTool(SignToolList[SignToolIndex]).Command, SignToolsParams[I], AExeFilename, SignToolRetryCount);
+    SignCommand(TSignTool(SignToolList[SignToolIndex]).Command, SignToolsParams[I], AExeFilename, SignToolRetryCount, SignToolRetryDelay, SignToolMinimumTimeBetween);
   end;
 end;
 
-procedure TSetupCompiler.SignCommand(const ACommand, AParams, AExeFilename: String; const RetryCount: Integer);
+procedure TSetupCompiler.SignCommand(const ACommand, AParams, AExeFilename: String; const RetryCount, RetryDelay, MinimumTimeBetween: Integer);
 
   function FmtCommand(S: PChar; const AParams, AExeFileName: String): String;
   var
@@ -7451,13 +7559,20 @@ procedure TSetupCompiler.SignCommand(const ACommand, AParams, AExeFilename: Stri
     end;
   end;
   
-  procedure InternalSignCommand(const AFormattedCommand: String);
+  procedure InternalSignCommand(const AFormattedCommand: String;
+    const Delay: Cardinal);
   var
     StartupInfo: TStartupInfo;
     ProcessInfo: TProcessInformation;
     LastError, ExitCode: DWORD;
   begin
-    AddStatus(Format(SCompilerStatusSigning, [AFormattedCommand]));
+    if Delay <> 0 then begin
+      AddStatus(Format(SCompilerStatusSigningWithDelay, [Delay, AFormattedCommand]));
+      Sleep(Delay);
+    end else
+      AddStatus(Format(SCompilerStatusSigning, [AFormattedCommand]));
+
+    LastSignCommandStartTick := GetTickCount;
 
     FillChar(StartupInfo, SizeOf(StartupInfo), 0);
     StartupInfo.cb := SizeOf(StartupInfo);
@@ -7491,6 +7606,7 @@ procedure TSetupCompiler.SignCommand(const ACommand, AParams, AExeFilename: Stri
 
 var
   Params, Command: String;
+  MinimumTimeBetweenDelay: Integer;
   I: Integer;
 begin
   Params := FmtCommand(PChar(AParams), '', AExeFileName);
@@ -7498,12 +7614,18 @@ begin
   
   for I := 0 to RetryCount do begin
     try
-      InternalSignCommand(Command);
+      if (MinimumTimeBetween <> 0) and (LastSignCommandStartTick <> 0) then begin
+        MinimumTimeBetweenDelay := MinimumTimeBetween - Integer(GetTickCount - LastSignCommandStartTick);
+        if MinimumTimeBetweenDelay < 0 then
+          MinimumTimeBetweenDelay := 0;
+      end else
+        MinimumTimeBetweenDelay := 0;
+      InternalSignCommand(Command, MinimumTimeBetweenDelay);
       Break;
     except on E: Exception do
       if I < RetryCount then begin
         AddStatus(Format(SCompilerStatusWillRetrySigning, [E.Message, RetryCount-I]));
-        Sleep(500); //wait a little bit before retrying
+        Sleep(RetryDelay);
       end else
         raise;
     end;
@@ -7659,8 +7781,8 @@ var
   SetupFile: TFile;
   ExeFile: TFile;
   LicenseText, InfoBeforeText, InfoAfterText: AnsiString;
-  WizardImage: TMemoryStream;
-  WizardSmallImage: TMemoryStream;
+  WizardImages: TList;
+  WizardSmallImages: TList;
   DecompressorDLL, DecryptionDLL: TMemoryStream;
 
   SetupLdrOffsetTable: TSetupLdrOffsetTable;
@@ -7762,8 +7884,12 @@ var
         SECompressedBlockWrite(W, UninstallRunEntries[J]^, SizeOf(TSetupRunEntry),
           SetupRunEntryStrings, SetupRunEntryAnsiStrings);
 
-      WriteStream(WizardImage, W);
-      WriteStream(WizardSmallImage, W);
+      W.Write(WizardImages.Count, SizeOf(Integer));
+      for J := 0 to WizardImages.Count-1 do
+        WriteStream(WizardImages[J], W);
+      W.Write(WizardSmallImages.Count, SizeOf(Integer));
+      for J := 0 to WizardSmallImages.Count-1 do
+        WriteStream(WizardSmallImages[J], W);
       if SetupHeader.CompressMethod in [cmZip, cmBzip] then
         WriteStream(DecompressorDLL, W);
       if shEncryptionUsed in SetupHeader.Options then
@@ -8345,6 +8471,7 @@ var
   I: Integer;
   AppNameHasConsts, AppVersionHasConsts, AppPublisherHasConsts,
     AppCopyrightHasConsts, AppIdHasConsts, Uninstallable: Boolean;
+  PrivilegesRequiredValue: String;
 begin
   { Sanity check: A single TSetupCompiler instance cannot be used to do
     multiple compiles. A separate instance must be used for each compile,
@@ -8358,8 +8485,8 @@ begin
   InitPreprocessor;
   InitLZMADLL;
 
-  WizardImage := nil;
-  WizardSmallImage := nil;
+  WizardImages := nil;
+  WizardSmallImages := nil;
   SetupE32 := nil;
   DecompressorDLL := nil;
   DecryptionDLL := nil;
@@ -8417,8 +8544,10 @@ begin
     WizardSmallImageFile := 'compiler:WIZMODERNSMALLIMAGE.BMP';
     DefaultDialogFontName := 'Tahoma';
     SignToolRetryCount := 2;
+    SignToolRetryDelay := 500;
     SetupHeader.CloseApplicationsFilter := '*.exe,*.dll,*.chm';
     SetupHeader.WizardImageAlphaFormat := afIgnored;
+    UsedUserAreasWarning := True;
 
     { Read [Setup] section }
     EnumIniSection(EnumSetup, 'Setup', 0, 0, True, True, '', False, False);
@@ -8634,12 +8763,10 @@ begin
     { Read wizard image }
     LineNumber := SetupDirectiveLines[ssWizardImageFile];
     AddStatus(Format(SCompilerStatusReadingFile, ['WizardImageFile']));
-    AddStatus(Format(SCompilerStatusReadingInFile, [PrependSourceDirName(WizardImageFile)]));
-    WizardImage := CreateMemoryStreamFromFile(PrependSourceDirName(WizardImageFile));
+    WizardImages := CreateMemoryStreamsFromFiles('WizardImageFile', WizardImageFile);
     LineNumber := SetupDirectiveLines[ssWizardSmallImageFile];
     AddStatus(Format(SCompilerStatusReadingFile, ['WizardSmallImageFile']));
-    AddStatus(Format(SCompilerStatusReadingInFile, [PrependSourceDirName(WizardSmallImageFile)]));
-    WizardSmallImage := CreateMemoryStreamFromFile(PrependSourceDirName(WizardSmallImageFile));
+    WizardSmallImages := CreateMemoryStreamsFromFiles('WizardSmallImageFile', WizardSmallImageFile);
     LineNumber := 0;
 
     { Prepare Setup executable & signed uninstaller data }
@@ -8652,7 +8779,7 @@ begin
     { Read languages:
 
       Non Unicode:
-      
+
       1. Read Default.isl messages:
 
       ReadDefaultMessages calls EnumMessages for Default.isl's [Messages], with Ext set to -2.
@@ -8817,6 +8944,16 @@ begin
     EnumIniSection(EnumFiles, 'Files', 0, 0, True, True, '', False, False);
     CallIdleProc;
 
+    if UsedUserAreasWarning and (UsedUserAreas.Count > 0) and
+       (SetupHeader.PrivilegesRequired in [prPowerUser, prAdmin]) then begin
+      if SetupHeader.PrivilegesRequired = prPowerUser then
+        PrivilegesRequiredValue := 'poweruser'
+      else
+        PrivilegesRequiredValue := 'admin';
+      WarningsList.Add(Format(SCompilerUsedUserAreasWarning, ['Setup',
+        'PrivilegesRequired', PrivilegesRequiredValue, UsedUserAreas.CommaText]));
+    end;
+
     { Read decompressor DLL. Must be done after [Files] is parsed, since
       SetupHeader.CompressMethod isn't set until then }
     case SetupHeader.CompressMethod of
@@ -8961,7 +9098,7 @@ begin
             AddStatus(SCompilerStatusUpdatingVersionInfo);
             UpdateVersionInfo(ExeFile, VersionInfoVersion, VersionInfoProductVersion, VersionInfoCompany,
               VersionInfoDescription, VersionInfoTextVersion,
-              VersionInfoCopyright, VersionInfoProductName, VersionInfoProductTextVersion);
+              VersionInfoCopyright, VersionInfoProductName, VersionInfoProductTextVersion, VersionInfoOriginalFileName);
 
             { For some reason, on Win95 the date/time of the EXE sometimes
               doesn't get updated after it's been written to so it has to
@@ -9001,8 +9138,8 @@ begin
     AddStatus('');
     for I := 0 to WarningsList.Count-1 do
       AddStatus(SCompilerStatusWarning + WarningsList[I]);
-    asm jmp @1; db 0,'Inno Setup Compiler, Copyright (C) 1997-2016 Jordan Russell, '
-                  db 'Portions Copyright (C) 2000-2016 Martijn Laan',0; @1: end;
+    asm jmp @1; db 0,'Inno Setup Compiler, Copyright (C) 1997-2018 Jordan Russell, '
+                  db 'Portions Copyright (C) 2000-2018 Martijn Laan',0; @1: end;
     { Note: Removing or modifying the copyright text is a violation of the
       Inno Setup license agreement; see LICENSE.TXT. }
   finally
@@ -9012,8 +9149,16 @@ begin
     DecryptionDLL.Free;
     DecompressorDLL.Free;
     SetupE32.Free;
-    WizardSmallImage.Free;
-    WizardImage.Free;
+    if WizardSmallImages <> nil then begin
+      for I := WizardSmallImages.Count-1 downto 0 do
+        TStream(WizardSmallImages[I]).Free;
+      WizardSmallImages.Free;
+    end;
+    if WizardImages <> nil then begin
+      for I := WizardImages.Count-1 downto 0 do
+        TStream(WizardImages[I]).Free;
+      WizardImages.Free;
+    end;
     FreeListItems(LanguageEntries, SetupLanguageEntryStrings, SetupLanguageEntryAnsiStrings);
     FreeListItems(CustomMessageEntries, SetupCustomMessageEntryStrings, SetupCustomMessageEntryAnsiStrings);
     FreeListItems(PermissionEntries, SetupPermissionEntryStrings, SetupPermissionEntryAnsiStrings);
